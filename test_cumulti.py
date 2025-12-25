@@ -71,22 +71,24 @@ elif configs.num_vote == 1:
     configs['dataset_params']['val_data_loader']["scale_aug"] = False
     configs['dataset_params']['val_data_loader']["transform_aug"] = False
 
-exp_dir_root = configs['model_params']['model_load_path'].split('/')
-exp_dir_root = exp_dir_root[0] if len(exp_dir_root) > 1 else ''
-exp_dir = './'+ exp_dir_root +'/'
-if not os.path.exists(exp_dir):
-    os.makedirs(exp_dir)
-shutil.copy('test_cumulti.py', str(exp_dir))
-shutil.copy('config/lk-cumulti_erk_tta.yaml', str(exp_dir))
+# exp_dir_root = configs['model_params']['model_load_path'].split('/')
+# exp_dir_root = exp_dir_root[0] if len(exp_dir_root) > 1 else ''
+# exp_dir = './'+ exp_dir_root +'/'
+# if not os.path.exists(exp_dir):
+#     os.makedirs(exp_dir)
+# shutil.copy('test_cumulti.py', str(exp_dir))
+# shutil.copy('config/lk-cumulti_erk_tta.yaml', str(exp_dir))
 
 
 def main(configs):
     configs.nprocs = torch.cuda.device_count()
-    configs.train_params.distributed = True if configs.nprocs > 1 else False
-    if configs.train_params.distributed:
-        mp.spawn(main_worker, nprocs=configs.nprocs, args=(configs.nprocs, configs))
-    else:
-        main_worker(0, 1, configs)
+    print(f"Number of GPUs available: {configs.nprocs}")
+
+    # configs.train_params.distributed = True if configs.nprocs > 1 else False
+    # if configs.train_params.distributed:
+    #     mp.spawn(main_worker, nprocs=configs.nprocs, args=(configs.nprocs, configs))
+    # else:
+    #     main_worker(0, 1, configs)
 
 def reduce_tensor(tensor, world_size):
     rt = tensor.clone()
