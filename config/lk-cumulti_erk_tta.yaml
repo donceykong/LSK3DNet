@@ -1,0 +1,104 @@
+# Config format schema number
+format_version: 1
+
+###################
+## Model options
+model_params:
+  model_architecture: "largekernelseg"
+
+  input_dims: 13
+  spatial_shape:
+    - 2000
+    - 2000
+    - 120
+  scale_list:
+    - 2
+    - 4
+    - 8
+    - 16
+  hiden_size:  64
+  num_classes: 22
+  large_kernel_size:
+    - 9
+    - 9
+    - 9
+  spatial_group_partition:
+    - 0
+    - 3
+    - 6
+    - 9
+  model_load_path: '' 
+  model_save_path: ''
+
+###################
+## Dataset options
+dataset_params:
+  training_size: 19130
+  dataset_type: "point_semkitti_mix"
+  pc_dataset_type: "CU_Multi"
+  collate_type: "mix_collate_fn_default"
+  ignore_label: 0
+  label_mapping: "./config/label_mapping/cu-multi.yaml"
+  num_classes: 22
+  
+  # CU-Multi specific settings
+  environments: ["main_campus"]  # List of environments to use
+  robots: ["robot1"]  # List of robots to use
+
+  spatial_shape:
+    - 2000
+    - 2000
+    - 120
+
+  max_volume_space:
+    - 50
+    - 50
+    - 2
+  min_volume_space:
+    - -50
+    - -50
+    - -4
+
+  val_data_loader:
+    data_path: "./dataset/CU_MULTI/data"  # Path to CU-Multi dataset root
+    imageset: "test"  # "train", "val", or "test"
+    rotate_aug: True
+    flip_aug: True
+    scale_aug: True
+    transform_aug: True
+    dropout_aug: False
+    polarmix_aug: False
+    mix_aug: False
+    instance_aug: False
+    SphereCrop: False
+    ShufflePoint: False
+    d_point_num: -1
+
+###################
+## Train params
+train_params:
+  seed: 1588147245
+  max_num_epochs: 60
+  learning_rate: 0.005
+  optimizer: AdamW  # [SGD, Adam]
+  weight_decay: 0.02
+  lr_scheduler:  OneCycleLR # [StepLR, ReduceLROnPlateau, CosineAnnealingLR, CosineAnnealingWarmRestarts, ]
+  lambda_lovasz: 1
+  eval_every_n_steps: 1999
+  distributed: False
+  amp_enabled: False
+
+
+###################
+## Sparse params
+sparse_params:
+  use_sparse: True
+  growth: 'random'
+  prune: 'magnitude'
+  redistribution: 'none'
+  prune_rate: 0.3
+  sparsity: 0.3
+  sparse_init: 'ERK'
+  update_frequency: 8000
+  stop_sparse_epoch: 60
+

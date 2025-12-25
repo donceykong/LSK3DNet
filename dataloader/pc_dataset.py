@@ -190,6 +190,80 @@ class nuScenes(data.Dataset):
         return data_dict, lidar_sample_token
 
 
+@register_dataset
+class CU_Multi(data.Dataset):
+    def __init__(self, config, data_path, imageset='train', num_vote=1):
+        with open(config['label_mapping'], 'r') as stream:
+            cumultiyaml = yaml.safe_load(stream)
+        self.learning_map = cumultiyaml['learning_map']
+        self.imageset = imageset
+        self.num_vote = num_vote
+        self.data_path = data_path
+        self.config = config
+        
+        # Get environments and robots from config or use defaults
+        self.environments = config.get('environments', ['main_campus'])
+        self.robots = config.get('robots', ['robot1'])
+        
+        # Get split information
+        if imageset == 'train':
+            split = cumultiyaml.get('split', {}).get('train', [1])
+        elif imageset == 'val':
+            split = cumultiyaml.get('split', {}).get('valid', [1])
+        elif imageset == 'test':
+            split = cumultiyaml.get('split', {}).get('test', [1])
+        else:
+            raise Exception('Split must be train/val/test')
+        
+        self.im_idx = []
+        # Build file list from environments and robots
+        for env in self.environments:
+            for robot in self.robots:
+                lidar_bin_path = os.path.join(data_path, env, robot, 'lidar_bin', 'data')
+                if os.path.exists(lidar_bin_path):
+                    self.im_idx += absoluteFilePaths_vote(lidar_bin_path, num_vote)
+        
+        # Sort to ensure consistent ordering
+        self.im_idx.sort()
+        print(f'Total {len(self.im_idx)} scans from environments {self.environments} and robots {self.robots}')
+
+    def __len__(self):
+        'Denotes the total number of samples'
+        return len(self.im_idx)
+
+    def __getitem__(self, index):
+        raw_data = np.fromfile(self.im_idx[index], dtype=np.float32).reshape((-1, 4))
+        xyz, feat = raw_data[:, :3], raw_data[:, 3:4]
+        origin_len = len(raw_data)
+
+        # Get label path
+        label_path = self.im_idx[index].replace('lidar_bin/data', 'lidar_labels')
+        
+        if self.imageset == 'test':
+            sem_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
+            inst_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=np.uint32), axis=1)
+        else:
+            if os.path.exists(label_path):
+                annotated_data = np.fromfile(label_path, dtype=np.int32).reshape((-1, 1))
+                sem_data = np.vectorize(self.learning_map.__getitem__)(annotated_data)
+                inst_data = np.expand_dims(np.zeros_like(annotated_data[:, 0], dtype=np.uint32), axis=1)
+            else:
+                # If labels don't exist, create dummy labels
+                sem_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
+                inst_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=np.uint32), axis=1)
+
+        origin_len = len(xyz)
+
+        data_dict = {}
+        data_dict['xyz'] = xyz
+        data_dict['labels'] = sem_data.astype(np.uint8)
+        data_dict['instance_label'] = inst_data
+        data_dict['signal'] = feat
+        data_dict['origin_len'] = origin_len
+
+        return data_dict, self.im_idx[index]
+
+
 def absoluteFilePaths(directory):
     for dirpath, _, filenames in os.walk(directory):
         filenames.sort()
@@ -237,3 +311,14 @@ def get_nuScenes_label_name(label_mapping):
         nuScenes_label_name[val_] = nuScenesyaml['labels_16'][val_]
 
     return nuScenes_label_name
+
+
+def get_CU_Multi_label_name(label_mapping):
+    with open(label_mapping, 'r') as stream:
+        cumultiyaml = yaml.safe_load(stream)
+    CU_Multi_label_name = dict()
+    for i in sorted(list(cumultiyaml['learning_map'].keys()))[::-1]:
+        val_ = cumultiyaml['learning_map'][i]
+        CU_Multi_label_name[val_] = cumultiyaml['labels'][i]
+
+    return CU_Multi_label_name
